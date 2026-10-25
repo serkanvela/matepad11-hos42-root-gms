@@ -1,0 +1,14 @@
+# Never commit firmware, loaders, device dumps, backups or Google APKs
+*.img
+*.bin
+*.elf
+*.mbn
+*.zip
+*.apk
+*.APP
+*.db
+backup/
+img/
+app/
+gpt/
+__pycache__/
