@@ -14,19 +14,16 @@ and on **scoolo** (4PDA), who found the method. The difference here: I went from
 straight to **HOS 4.2.0.208 China (C00)** without first installing the HOS 2 China dload package. That needs a new
 GPT, which this repository generates from the 4.2 package itself and checks against the device.
 
-> **Status update, 26 Oct 2026 — Google apps are blocked on my unit.** Everything worked for the first day.
-> Since then Play Store, Google Photos, the Google app and Maps open only the screen "This device isn't Play
-> Protect certified" (Google's `gmscompliance` check), although the GSF ID is registered at
-> google.com/android/uncertified. Two things happened:
-> 1. After Play Store updated Play services to 26.41, every checkin failed because HarmonyOS reports the IMEI of
->    this Wi-Fi tablet as the text `"unknown"`. [Section 11.4](#114-checkin-fails-unknown-is-not-a-valid-imei)
->    fixes that, and checkin succeeds again.
-> 2. Even with a successful checkin and the registration in place, Google's server now returns an "uncertified"
->    verdict and the block stays. I don't spoof certification, so I have no fix for this part.
+> **Status update, 26 Oct 2026 — the Google app block was recovered on this unit.** The existing
+> [IMEI fix](#114-checkin-fails-unknown-is-not-a-valid-imei) restored Checkin, but the old GSF identity still
+> received `uncertified_status=3`. After backing up its Checkin state, obtaining a new identity through Google's
+> normal Checkin exchange, and registering that identity at Google's official page, Play Store, Maps and Photos
+> worked again, including after reboot. GMS reports `shouldAllowGmsFunctionality=true`, `isProvisional=false`.
 >
-> Checked on 26 Oct 2026 and still working: Play services in the background (the FCM push connection that other
-> apps use stays connected). I have not re-checked other apps since the block. If you need Google's own apps, this
-> route may not be for you right now.
+> [The recovery report](reports/2026-10-26-gsf-recovery.md) records the tests, rollback and remaining limits.
+> This is **not OEM certification or a Play Integrity pass**. The new state has not yet been tested past 25 hours.
+> An optional [Checkin guard](checkin-guard/) is installed on this unit to log health and request a normal Checkin
+> if the last success is over 18 hours old. Keep the IMEI fix enabled; do not routinely clear GSF/GMS data or rotate IDs.
 
 ## Contents
 
@@ -65,13 +62,14 @@ What I checked with adb (not just "it installed"):
 |---|---|
 | Play services / Play Store as priv-app, updating themselves (GMS 26.41, Play Store 53.6) | Installed and updating |
 | Google account sign-in, ~50 apps installed from Play Store | Worked on the first day |
-| Play Store, Google Photos, Google app, Maps (checked 26 Oct 2026) | **Blocked** by the "not Play Protect certified" screen, see the status update above |
+| Play Store, Google Photos, Maps (retested 26 Oct 2026 after recovery/reboot) | Store catalog and VLC app details; Maps tiles and Istanbul search; Photos library and photo viewer work. See [test scope](reports/2026-10-26-gsf-recovery.md#functional-tests). |
+| Google app / Drive (26 Oct 2026 after recovery) | Main interfaces open after clearing the old activity task. Search execution, file download/upload and long-term behavior are not fully tested. |
 | Checkin with Play services 26.41 | Fails with `"unknown" is not a valid IMEI` until the [IMEI fix](#114-checkin-fails-unknown-is-not-a-valid-imei) is installed; succeeds after it |
 | FCM push connection (`mtalk.google.com:5228` connected) | Works (also on 26 Oct 2026, while the apps are blocked) |
 | Contacts and calendar sync | Works after [the permission script](#113-runtime-permissions) |
 | Netflix DRM | Widevine **L1** (Netflix reports `WIDEVINE_L1`, L1 certificates provisioned) |
 | Netflix resolution | **720p measured** (1280×720 buffer, secure H.264 decoder) in the first minute of one title. Longer playback not tested. Prime Video and HBO Max not measured. The panel is 2560×1600, so 4K output is not possible on this tablet anyway. |
-| Play Protect certification | **Not certified.** Expected with an unlocked bootloader and root. Nothing is spoofed here. |
+| Play Protect certification | **No OEM certification established.** The current Google supported-device list has no DBY-W09 match. Working Google apps do not prove certification. |
 | Banking apps / Play Integrity | Not tested. Expect some to refuse to run. |
 | Huawei pen (M-Pencil) | Pairs and connects |
 | Huawei Smart Magnetic Keyboard | Not working on my unit, but it was already broken before the update, so I can't say whether 4.2 is the cause. |
@@ -514,8 +512,8 @@ adb logcat -s Checkin
 `HwInnerTelephonyManager.getUniqueDeviceId()`, and on this Wi-Fi-only tablet that returns the literal string
 `"unknown"`. AOSP returns `null` when there is no modem, and `getImei(0)` really does return `null` here.
 Play services 21.48 (the version in the module) accepted the value. 26.41 checks it and the checkin is rejected.
-The last checkin that worked on my unit was one minute before Play Store updated Play services. The uncertified
-registration then lapsed about 25 hours later.
+The last checkin that worked on my unit was one minute before Play Store updated Play services. The app block
+appeared about 25 hours later; this timing alone does not establish why Google rejected the old identity.
 
 **Fix.** [`imeifix/`](imeifix) is a small Xposed module. Its scope is Play services only. When
 `TelephonyManager.getImei()`, `getDeviceId()` or `getMeid()` return `"unknown"`, the module returns `null`
@@ -541,11 +539,25 @@ adb shell su -c "/data/adb/lspd/cli scope set local.dbyw09.imeifix com.google.an
 adb shell su -c "am force-stop com.google.android.gms"
 ```
 
-Then trigger a checkin as above. It should log `Checkin Succeeded`. On my unit it did, but **the apps stayed
+Then trigger a checkin as above. It should log `Checkin Succeeded`. Initially it did, but **the apps stayed
 blocked**: after the successful checkin, Google's server returned an "uncertified" verdict (GSF
 `uncertified_status` went from `1` with a 25-hour expiry to `3` with no expiry). Clearing the cached verdict
 (`files/gmscompliance/shared/cache.pb` in Play services' data folder) only fetched the same verdict again.
 Registering the GSF ID again is not possible: the page says it is already registered.
+
+### 11.5 Recovery with a new, officially registered GSF identity
+
+Later on 26 Oct, backing up and resetting only the linked GSF/GMS Checkin identity state let Google's Checkin
+allocate a new GSF ID. The owner registered it at <https://www.google.com/android/uncertified/>. Another successful
+Checkin was followed by working Google apps. The old identity, token files and preferences remain in a private
+rollback checkpoint. No Google APK, device fingerprint or hardware attestation was changed.
+
+Read the [full recovery and prevention report](reports/2026-10-26-gsf-recovery.md) before attempting anything
+similar. A GSF-only reset can leave GMS using the old identity/token; a blind `pm clear` can remove more state
+than needed. This is a one-device result, and the exact reason the old identity was rejected is unresolved.
+
+Keep NeoZygisk, Vector and the IMEI fix active. The [optional Checkin guard](checkin-guard/) provides an hourly
+health log and an 18-hour stale-Checkin fallback. It does not override a server denial or guarantee future access.
 
 ## 12. After setup
 
@@ -605,6 +617,7 @@ The scripts in `scripts/` only read their inputs and write new files; none of th
 | [`scripts/build_gms_module.py`](scripts/build_gms_module.py) | Builds the systemless GMS module from the official MindTheGapps 12.1 zip (checks its hash). |
 | [`scripts/grant-runtime-permissions.sh`](scripts/grant-runtime-permissions.sh) | Grants the runtime permissions the Google sync adapters need. |
 | [`imeifix/`](imeifix) | Xposed module (source + `build.sh`): returns `null` instead of HarmonyOS's `"unknown"` IMEI in Play services, see 11.4. Runs on the device. |
+| [`checkin-guard/`](checkin-guard/) | Optional APatch module: logs Checkin health hourly; requests normal Checkin after 18 hours without success. No identity resets or attestation changes. |
 
 This repository contains **no** firmware, loaders, ABL images, Google APKs or device backups. Get them from the
 sources above.
