@@ -14,6 +14,20 @@ and on **scoolo** (4PDA), who found the method. The difference here: I went from
 straight to **HOS 4.2.0.208 China (C00)** without first installing the HOS 2 China dload package. That needs a new
 GPT, which this repository generates from the 4.2 package itself and checks against the device.
 
+> **Status update, 26 Oct 2026 — Google apps are blocked on my unit.** Everything worked for the first day.
+> Since then Play Store, Google Photos, the Google app and Maps open only the screen "This device isn't Play
+> Protect certified" (Google's `gmscompliance` check), although the GSF ID is registered at
+> google.com/android/uncertified. Two things happened:
+> 1. After Play Store updated Play services to 26.41, every checkin failed because HarmonyOS reports the IMEI of
+>    this Wi-Fi tablet as the text `"unknown"`. [Section 11.4](#114-checkin-fails-unknown-is-not-a-valid-imei)
+>    fixes that, and checkin succeeds again.
+> 2. Even with a successful checkin and the registration in place, Google's server now returns an "uncertified"
+>    verdict and the block stays. I don't spoof certification, so I have no fix for this part.
+>
+> Checked on 26 Oct 2026 and still working: Play services in the background (the FCM push connection that other
+> apps use stays connected). I have not re-checked other apps since the block. If you need Google's own apps, this
+> route may not be for you right now.
+
 ## Contents
 
 - [Result](#result)
@@ -49,9 +63,11 @@ What I checked with adb (not just "it installed"):
 
 | Item | Status |
 |---|---|
-| Play services / Play Store as priv-app, updating themselves (GMS 26.41, Play Store 53.6) | Works |
-| Google account sign-in, ~50 apps installed from Play Store | Works |
-| FCM push connection (`mtalk.google.com:5228` connected) | Works |
+| Play services / Play Store as priv-app, updating themselves (GMS 26.41, Play Store 53.6) | Installed and updating |
+| Google account sign-in, ~50 apps installed from Play Store | Worked on the first day |
+| Play Store, Google Photos, Google app, Maps (checked 26 Oct 2026) | **Blocked** by the "not Play Protect certified" screen, see the status update above |
+| Checkin with Play services 26.41 | Fails with `"unknown" is not a valid IMEI` until the [IMEI fix](#114-checkin-fails-unknown-is-not-a-valid-imei) is installed; succeeds after it |
+| FCM push connection (`mtalk.google.com:5228` connected) | Works (also on 26 Oct 2026, while the apps are blocked) |
 | Contacts and calendar sync | Works after [the permission script](#113-runtime-permissions) |
 | Netflix DRM | Widevine **L1** (Netflix reports `WIDEVINE_L1`, L1 certificates provisioned) |
 | Netflix resolution | **720p measured** (1280×720 buffer, secure H.264 decoder) in the first minute of one title. Longer playback not tested. Prime Video and HBO Max not measured. The panel is 2560×1600, so 4K output is not possible on this tablet anyway. |
@@ -477,6 +493,60 @@ adb push scripts\grant-runtime-permissions.sh /data/local/tmp/
 adb shell su -c "sh /data/local/tmp/grant-runtime-permissions.sh"
 ```
 
+### 11.4 Checkin fails: "unknown" is not a valid IMEI
+
+**Symptom.** About a day after setup, Google apps show "This device isn't Play Protect certified". In logcat every
+checkin fails:
+
+```
+W/Checkin: [CheckinRequestProcessor] Default Task : Checkin failed: https://android.googleapis.com/checkin
+           (fragment #0) invalid hardware identifier: "unknown" is not a valid IMEI (expect 15 decimal digits)
+```
+
+Trigger a checkin by hand and watch for that line:
+
+```
+adb shell su -c "am broadcast -a android.provider.Telephony.SECRET_CODE -d android_secret_code://2432546 -p com.google.android.gms"
+adb logcat -s Checkin
+```
+
+**Cause.** On HarmonyOS, `TelephonyManager.getImei()` (no argument) does not take the AOSP path. It calls
+`HwInnerTelephonyManager.getUniqueDeviceId()`, and on this Wi-Fi-only tablet that returns the literal string
+`"unknown"`. AOSP returns `null` when there is no modem, and `getImei(0)` really does return `null` here.
+Play services 21.48 (the version in the module) accepted the value. 26.41 checks it and the checkin is rejected.
+The last checkin that worked on my unit was one minute before Play Store updated Play services. The uncertified
+registration then lapsed about 25 hours later.
+
+**Fix.** [`imeifix/`](imeifix) is a small Xposed module. Its scope is Play services only. When
+`TelephonyManager.getImei()`, `getDeviceId()` or `getMeid()` return `"unknown"`, the module returns `null`
+instead, which is the AOSP behaviour. It returns no made-up identifier and changes nothing else. It needs a Zygisk
+implementation and an Xposed framework on APatch. I used:
+
+| What | Where |
+|---|---|
+| NeoZygisk v2.4 (`NeoZygisk-v2.4-289-release.zip`) | <https://github.com/JingMatrix/NeoZygisk/releases> |
+| Vector v2.2 (LSPosed fork, `Vector-v2.2-3080-Release.zip`) | <https://github.com/JingMatrix/LSPosed/releases> |
+
+```
+adb push NeoZygisk-v2.4-289-release.zip /data/local/tmp/nz.zip
+adb push Vector-v2.2-3080-Release.zip /data/local/tmp/vector.zip
+adb shell su -c "/data/adb/apd module install /data/local/tmp/nz.zip"
+adb shell su -c "/data/adb/apd module install /data/local/tmp/vector.zip"
+adb reboot
+
+cd imeifix && sh build.sh                 (needs the Android SDK build-tools 36 and JDK 17)
+adb install imeifix.apk
+adb shell su -c "/data/adb/lspd/cli modules enable local.dbyw09.imeifix"
+adb shell su -c "/data/adb/lspd/cli scope set local.dbyw09.imeifix com.google.android.gms/0"
+adb shell su -c "am force-stop com.google.android.gms"
+```
+
+Then trigger a checkin as above. It should log `Checkin Succeeded`. On my unit it did, but **the apps stayed
+blocked**: after the successful checkin, Google's server returned an "uncertified" verdict (GSF
+`uncertified_status` went from `1` with a 25-hour expiry to `3` with no expiry). Clearing the cached verdict
+(`files/gmscompliance/shared/cache.pb` in Play services' data folder) only fetched the same verdict again.
+Registering the GSF ID again is not possible: the page says it is already registered.
+
 ## 12. After setup
 
 - **Chinese keyboard:** install Gboard from Play Store and set it as the default input method.
@@ -505,11 +575,14 @@ adb shell su -c "sh /data/local/tmp/grant-runtime-permissions.sh"
 | Git Bash turns `/sdcard/...` into `C:/Program Files/Git/sdcard/...` | Use cmd/PowerShell, or `MSYS_NO_PATHCONV=1` in Git Bash. |
 | Contacts / calendar don't sync | Run the permission script (11.3). |
 | Play Store says "device not certified" | Expected. Registration (11.2) is what makes sign-in work; certification stays off. |
+| Google apps open only "This device isn't Play Protect certified" | Check whether checkin fails with `"unknown" is not a valid IMEI` and install the fix (11.4). If checkin succeeds and the block stays, see the status update at the top: I have no fix for that part. |
 
 ## Going back
 
 - **Remove only GMS (keep root):** first uninstall the updates of Play Store and Play services in Settings → Apps,
   then APatch → Modules → remove the module → reboot.
+- **Remove the IMEI fix:** `adb uninstall local.dbyw09.imeifix`, then APatch → Modules → remove Vector and
+  NeoZygisk → reboot.
 - **Remove root:** `fastboot flash boot C:\mp11\img\base\BOOT_0.img` (the unpatched 4.2 boot).
 - **Back to HOS 2 Global (all from your backup, in EDL):** write the saved original GPT sectors back to the same
   LBAs (`orig_*.bin` from step 7a), write the original oeminfo, then restore the LUN0/LUN4 partitions from the
@@ -520,7 +593,7 @@ adb shell su -c "sh /data/local/tmp/grant-runtime-permissions.sh"
 
 ## Scripts in this repository
 
-All scripts only read their inputs and write new files. None of them talks to the device.
+The scripts in `scripts/` only read their inputs and write new files; none of them talks to the device.
 
 | Script | What it does |
 |---|---|
@@ -531,6 +604,7 @@ All scripts only read their inputs and write new files. None of them talks to th
 | [`scripts/flashplan.py`](scripts/flashplan.py) | Maps images to partitions of the new GPT, checks sizes, writes the PowerShell flash script. |
 | [`scripts/build_gms_module.py`](scripts/build_gms_module.py) | Builds the systemless GMS module from the official MindTheGapps 12.1 zip (checks its hash). |
 | [`scripts/grant-runtime-permissions.sh`](scripts/grant-runtime-permissions.sh) | Grants the runtime permissions the Google sync adapters need. |
+| [`imeifix/`](imeifix) | Xposed module (source + `build.sh`): returns `null` instead of HarmonyOS's `"unknown"` IMEI in Play services, see 11.4. Runs on the device. |
 
 This repository contains **no** firmware, loaders, ABL images, Google APKs or device backups. Get them from the
 sources above.

@@ -12,3 +12,5 @@ img/
 app/
 gpt/
 __pycache__/
+*.jks
+imeifix/build/
