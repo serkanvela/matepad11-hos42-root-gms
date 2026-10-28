@@ -1,5 +1,9 @@
 # Recovery from the Google app certification block, 26 October 2026
 
+> **Follow-up, 28 October:** The recovery below did not persist beyond 25 hours. The same ID again receives
+> status `3`, while Checkin succeeds and the guard is active. See the [recurrence report](2026-10-28-recurrence.md).
+> The successful tests below are historical observations, not the current application status.
+
 This is an experiment on one DBY-W09, HarmonyOS 4.2.0.208 (C00), Android 12/API 31, starting at commit `638191a`. It is not evidence that this firmware has become Google-certified. Times below are Europe/Istanbul (UTC+3). Raw logs, account state, identifiers, databases and APKs remain outside this public repository.
 
 ## What changed the outcome

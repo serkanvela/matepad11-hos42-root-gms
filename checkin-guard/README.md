@@ -3,6 +3,10 @@
 Optional APatch module used after the [26 October recovery](../reports/2026-10-26-gsf-recovery.md).
 Keep the existing IMEI fix, NeoZygisk and Vector enabled. This guard does not replace them.
 
+**28 October follow-up:** The certification block returned while Checkin and this guard were working. This
+module addresses stale Checkins only; it is not a lasting fix for the device-certification denial. The
+[recurrence report](../reports/2026-10-28-recurrence.md) documents the failed test beyond 25 hours.
+
 It checks the last successful Google Checkin once per hour. If that success is at least 18 hours old, it requests
 a normal Checkin. It retries at most hourly. Recent successful Checkins are left alone. It also records the
 already-running compliance broker's status when available; `unknown` means that diagnostic service was not
@@ -57,4 +61,4 @@ Six host policy tests: `python -m unittest discover -s tests -v` (Git Bash on Wi
 The timing policy was also exercised with the device's actual mksh; epoch milliseconds are truncated as decimal
 text before arithmetic to avoid Android's integer overflow. Device checks covered fresh-state no-op, a normal
 Checkin, automatic startup after reboot, source/deployment hashes, duplicate-start suppression and immediate
-stop/restart. A real observation beyond 25 hours remains outstanding.
+stop/restart. The subsequent observation beyond 25 hours failed for Google app access despite successful Checkin.

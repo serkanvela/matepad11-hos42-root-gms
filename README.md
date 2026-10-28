@@ -14,14 +14,19 @@ and on **scoolo** (4PDA), who found the method. The difference here: I went from
 straight to **HOS 4.2.0.208 China (C00)** without first installing the HOS 2 China dload package. That needs a new
 GPT, which this repository generates from the 4.2 package itself and checks against the device.
 
-> **Status update, 26 Oct 2026 — the Google app block was recovered on this unit.** The existing
+> **Status update, 28 Oct 2026 — the block returned after more than 25 hours.** The same registered GSF identity
+> now has `uncertified_status=3`. Checkin is still successful and the guard is running. Play Store, Photos and
+> Maps again open `UncertifiedDeviceActivity`. The guard protects against missed Checkins; it does not prevent
+> this certification denial. See the [recurrence investigation](reports/2026-10-28-recurrence.md).
+>
+> **Historical result, 26 Oct 2026 — the block was temporarily recovered on this unit.** The existing
 > [IMEI fix](#114-checkin-fails-unknown-is-not-a-valid-imei) restored Checkin, but the old GSF identity still
 > received `uncertified_status=3`. After backing up its Checkin state, obtaining a new identity through Google's
 > normal Checkin exchange, and registering that identity at Google's official page, Play Store, Maps and Photos
 > worked again, including after reboot. GMS reports `shouldAllowGmsFunctionality=true`, `isProvisional=false`.
 >
 > [The recovery report](reports/2026-10-26-gsf-recovery.md) records the tests, rollback and remaining limits.
-> This is **not OEM certification or a Play Integrity pass**. The new state has not yet been tested past 25 hours.
+> This is **not OEM certification or a Play Integrity pass**. The subsequent test past 25 hours **failed**.
 > An optional [Checkin guard](checkin-guard/) is installed on this unit to log health and request a normal Checkin
 > if the last success is over 18 hours old. Keep the IMEI fix enabled; do not routinely clear GSF/GMS data or rotate IDs.
 
@@ -62,7 +67,7 @@ What I checked with adb (not just "it installed"):
 |---|---|
 | Play services / Play Store as priv-app, updating themselves (GMS 26.41, Play Store 53.6) | Installed and updating |
 | Google account sign-in, ~50 apps installed from Play Store | Worked on the first day |
-| Play Store, Google Photos, Maps (retested 26 Oct 2026 after recovery/reboot) | Store catalog and VLC app details; Maps tiles and Istanbul search; Photos library and photo viewer work. See [test scope](reports/2026-10-26-gsf-recovery.md#functional-tests). |
+| Play Store, Google Photos, Maps | Worked after the 26 Oct recovery and reboot; **blocked again on 28 Oct**. See [recurrence evidence](reports/2026-10-28-recurrence.md). |
 | Google app / Drive (26 Oct 2026 after recovery) | Main interfaces open after clearing the old activity task. Search execution, file download/upload and long-term behavior are not fully tested. |
 | Checkin with Play services 26.41 | Fails with `"unknown" is not a valid IMEI` until the [IMEI fix](#114-checkin-fails-unknown-is-not-a-valid-imei) is installed; succeeds after it |
 | FCM push connection (`mtalk.google.com:5228` connected) | Works (also on 26 Oct 2026, while the apps are blocked) |
@@ -555,6 +560,10 @@ rollback checkpoint. No Google APK, device fingerprint or hardware attestation w
 Read the [full recovery and prevention report](reports/2026-10-26-gsf-recovery.md) before attempting anything
 similar. A GSF-only reset can leave GMS using the old identity/token; a blind `pm clear` can remove more state
 than needed. This is a one-device result, and the exact reason the old identity was rejected is unresolved.
+
+**Follow-up, 28 Oct:** This was temporary. The same new ID is blocked again despite successful Checkin. Do not
+treat repeated identity resets as a durable fix. The [follow-up report](reports/2026-10-28-recurrence.md) records
+the failed post-25-hour test and the reversible experiments used to distinguish caching from access denial.
 
 Keep NeoZygisk, Vector and the IMEI fix active. The [optional Checkin guard](checkin-guard/) provides an hourly
 health log and an 18-hour stale-Checkin fallback. It does not override a server denial or guarantee future access.
