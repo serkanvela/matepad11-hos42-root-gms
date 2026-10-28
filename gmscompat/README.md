@@ -63,3 +63,7 @@ Future app updates can change the inspected methods; the version guard then leav
 block may return. Automatic update settings were not changed. Reinspect and rebuild for new versions; do not
 remove the version guard or claim universal compatibility. Cloud backup, banking, payments and Play Integrity
 are outside the passing tests.
+
+The owner also requested removal of the recurring banner. Separately from this module, Android notification
+settings now block only the GMS `uncertified_device` channel (Play Protect). Other channels are unchanged.
+Re-enable that channel in notification settings to reverse this preference; APK uninstall does not reset it.

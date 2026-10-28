@@ -30,8 +30,15 @@ that the Checkin guard failed to prevent the recurrence. Checkin health and appl
 | New observation beyond 25 hours | **Pending**, not claimed as passed |
 
 Screenshots, original APKs, account details and database snapshots are private and are not included here.
-The Photos viewer screenshot also captured a GMS uncertified-device notification. The local workaround does not
-suppress that separate notification or assert that the device is certified.
+The initial Photos viewer screenshot also captured a separate GMS uncertified-device notification. After the
+owner reported the popup, Android notification settings were used to disable only GMS channel
+`uncertified_device` (display name Play Protect): importance changed from 4 to 0, user-locked importance flag 4.
+The active warning count became zero and remained zero after restarting Photos; all other notification-channel
+configurations compared unchanged. This is a separate presentation setting, not certification or a module hook.
+To undo it, reopen this channel in Android notification settings and enable notifications. The exact settings
+intent is `android.settings.CHANNEL_NOTIFICATION_SETTINGS`, with `android.provider.extra.APP_PACKAGE` set to
+`com.google.android.gms` and `android.provider.extra.CHANNEL_ID` set to `uncertified_device`. The module-uninstall
+rollback does not change this user notification preference.
 
 ## Final implementation and scope
 
