@@ -68,3 +68,10 @@ that interface; it does not prevent the ADB/device investigation.
 
 Raw databases, tokens, account data, full package dumps and device screenshots are kept outside this public
 repository. The checkpoint contains rollback scripts for the cache, status-key and component experiments.
+
+## Subsequent application-side experiment
+
+Later on 28 October, a separate version-limited Vector module restored the three applications, including a
+Store download and reboot/control tests, while the same GSF identity remained at status 3. See the
+[follow-up report](2026-10-28-app-compatibility.md). The earlier failed experiments above remain valid evidence;
+the follow-up does not turn the Checkin guard into a certification solution.

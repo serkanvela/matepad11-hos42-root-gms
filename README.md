@@ -14,7 +14,14 @@ and on **scoolo** (4PDA), who found the method. The difference here: I went from
 straight to **HOS 4.2.0.208 China (C00)** without first installing the HOS 2 China dload package. That needs a new
 GPT, which this repository generates from the 4.2 package itself and checks against the device.
 
-> **Status update, 28 Oct 2026 — the block returned after more than 25 hours.** The same registered GSF identity
+> **Latest result, 28 Oct 2026 — application access restored with a separate local compatibility module.**
+> Play Store downloads, Maps search/tiles and Photos local gallery/viewer pass the current device tests and
+> reboot test. The same registered identity still has `uncertified_status=3`. The [module](gmscompat/)
+> adapts three inspected application-side enforcement gates; it does not confer certification or Play Integrity.
+> Removing it and rebooting reproduced the block. A new observation beyond 25 hours is **still pending**.
+> App-version updates require revalidation. See the [implementation and control tests](reports/2026-10-28-app-compatibility.md).
+>
+> **Earlier on 28 Oct 2026 — the block returned after more than 25 hours.** The same registered GSF identity
 > now has `uncertified_status=3`. Checkin is still successful and the guard is running. Play Store, Photos and
 > Maps again open `UncertifiedDeviceActivity`. The guard protects against missed Checkins; it does not prevent
 > this certification denial. See the [recurrence investigation](reports/2026-10-28-recurrence.md).
@@ -67,7 +74,7 @@ What I checked with adb (not just "it installed"):
 |---|---|
 | Play services / Play Store as priv-app, updating themselves (GMS 26.41, Play Store 53.6) | Installed and updating |
 | Google account sign-in, ~50 apps installed from Play Store | Worked on the first day |
-| Play Store, Google Photos, Maps | Worked after the 26 Oct recovery and reboot; **blocked again on 28 Oct**. See [recurrence evidence](reports/2026-10-28-recurrence.md). |
+| Play Store, Google Photos, Maps | Restored on 28 Oct with the [local application module](gmscompat/), including Store download and reboot/control tests. Long-duration observation pending; see [results and limits](reports/2026-10-28-app-compatibility.md). |
 | Google app / Drive (26 Oct 2026 after recovery) | Main interfaces open after clearing the old activity task. Search execution, file download/upload and long-term behavior are not fully tested. |
 | Checkin with Play services 26.41 | Fails with `"unknown" is not a valid IMEI` until the [IMEI fix](#114-checkin-fails-unknown-is-not-a-valid-imei) is installed; succeeds after it |
 | FCM push connection (`mtalk.google.com:5228` connected) | Works (also on 26 Oct 2026, while the apps are blocked) |
