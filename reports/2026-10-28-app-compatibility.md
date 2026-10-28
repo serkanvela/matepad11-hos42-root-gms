@@ -30,15 +30,27 @@ that the Checkin guard failed to prevent the recurrence. Checkin health and appl
 | New observation beyond 25 hours | **Pending**, not claimed as passed |
 
 Screenshots, original APKs, account details and database snapshots are private and are not included here.
-The initial Photos viewer screenshot also captured a separate GMS uncertified-device notification. After the
-owner reported the popup, Android notification settings were used to disable only GMS channel
-`uncertified_device` (display name Play Protect): importance changed from 4 to 0, user-locked importance flag 4.
-The active warning count became zero and remained zero after restarting Photos; all other notification-channel
-configurations compared unchanged. This is a separate presentation setting, not certification or a module hook.
-To undo it, reopen this channel in Android notification settings and enable notifications. The exact settings
-intent is `android.settings.CHANNEL_NOTIFICATION_SETTINGS`, with `android.provider.extra.APP_PACKAGE` set to
-`com.google.android.gms` and `android.provider.extra.CHANNEL_ID` set to `uncertified_device`. The module-uninstall
-rollback does not change this user notification preference.
+The initial Photos viewer screenshot captured a separate GMS uncertified-device notification. The owner
+requested removal of that popup. Huawei's channel-settings screen grouped multiple channels as “Social”:
+toggling it changed eight other channels as well. This was detected by comparing full before/after channel
+records. The grouped setting was re-enabled, all eight affected channels were restored to their original
+importance and unlocked state, and Android's notification service API then disabled **only**
+`com.google.android.gms` / `uncertified_device` (Play Protect).
+
+Final verification: the target importance is 0 with user-locked importance flag 4, the active certification
+notification count is zero, general GMS notifications remain enabled, and every other channel record exactly
+matches its original snapshot. This is a presentation preference, separate from certification and the app module.
+
+A targeted notification rollback JAR is saved in the private on-device checkpoint. Run as root:
+
+```sh
+CLASSPATH=/data/adb/gmsdiag-20261028-gmscompat/restore-certification-notification.jar app_process /system/bin RestoreCertificationNotification
+```
+
+It restores only this channel to its original importance 4 and unlocks its importance setting. Avoid the Huawei
+grouped switch for a single-channel rollback. Uninstalling the app compatibility APK does not reset notification
+preferences.
+
 
 ## Final implementation and scope
 

@@ -66,4 +66,5 @@ are outside the passing tests.
 
 The owner also requested removal of the recurring banner. Separately from this module, Android notification
 settings now block only the GMS `uncertified_device` channel (Play Protect). Other channels are unchanged.
-Re-enable that channel in notification settings to reverse this preference; APK uninstall does not reset it.
+Huawei groups several channels in its settings UI. Use the targeted notification rollback described in the
+[report](../reports/2026-10-28-app-compatibility.md) to reverse only this preference; APK uninstall does not reset it.
